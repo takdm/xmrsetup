@@ -61,9 +61,11 @@ show_usage() {
     echo "  --no-deps       Skip dependency installation"
     echo ""
     echo "Mining Options:"
-    echo "  --wallet ADDR   Specify wallet address (default: built-in address)"
-    echo "  --data-dir DIR  Specify data directory (default: ~/xmrblock)"
-    echo "  --config        Use configuration files if available"
+    echo "  --wallet ADDR          Specify wallet address (default: built-in address)"
+    echo "  --data-dir DIR         Specify data directory (default: ~/xmrblock)"
+    echo "  --config               Use configuration files if available"
+    echo "  --separate-terminals   Launch processes in separate terminals (default)"
+    echo "  --integrated           Launch processes in same terminal (legacy mode)"
     echo ""
     echo "Configuration Options:"
     echo "  --wallet ADDR   Wallet address for configuration"
@@ -71,7 +73,8 @@ show_usage() {
     echo ""
     echo "Examples:"
     echo "  $0 install --auto              # Auto-install everything"
-    echo "  $0 mine --wallet YOUR_WALLET   # Start mining with your wallet"
+    echo "  $0 mine --wallet YOUR_WALLET   # Start mining in separate terminals"
+    echo "  $0 mine --integrated            # Start mining in same terminal (old style)"
     echo "  $0 config --wallet YOUR_WALLET # Generate configs"
     echo "  $0 status                      # Check what's installed"
 }
@@ -113,6 +116,69 @@ check_network() {
         fi
         return 1
     fi
+}
+
+# Detect available terminal emulator
+detect_terminal() {
+    local terminals=("gnome-terminal" "konsole" "xfce4-terminal" "mate-terminal" "xterm" "alacritty" "kitty" "terminator" "tilix")
+    
+    for terminal in "${terminals[@]}"; do
+        if command_exists "$terminal"; then
+            echo "$terminal"
+            return 0
+        fi
+    done
+    
+    return 1
+}
+
+# Launch command in separate terminal
+launch_in_terminal() {
+    local cmd="$1"
+    local title="$2"
+    local terminal
+    
+    terminal=$(detect_terminal)
+    if [[ $? -ne 0 ]]; then
+        log_error "No suitable terminal emulator found. Please install one of: gnome-terminal, konsole, xfce4-terminal, xterm, alacritty, etc."
+        return 1
+    fi
+    
+    case "$terminal" in
+        "gnome-terminal")
+            gnome-terminal --title="$title" -- bash -c "$cmd; echo 'Process finished. Press Enter to close...'; read" &
+            ;;
+        "konsole")
+            konsole --title="$title" -e bash -c "$cmd; echo 'Process finished. Press Enter to close...'; read" &
+            ;;
+        "xfce4-terminal")
+            xfce4-terminal --title="$title" -e "bash -c '$cmd; echo \"Process finished. Press Enter to close...\"; read'" &
+            ;;
+        "mate-terminal")
+            mate-terminal --title="$title" -e "bash -c '$cmd; echo \"Process finished. Press Enter to close...\"; read'" &
+            ;;
+        "alacritty")
+            alacritty --title="$title" -e bash -c "$cmd; echo 'Process finished. Press Enter to close...'; read" &
+            ;;
+        "kitty")
+            kitty --title="$title" bash -c "$cmd; echo 'Process finished. Press Enter to close...'; read" &
+            ;;
+        "terminator")
+            terminator --title="$title" -e "bash -c '$cmd; echo \"Process finished. Press Enter to close...\"; read'" &
+            ;;
+        "tilix")
+            tilix --title="$title" -e "bash -c '$cmd; echo \"Process finished. Press Enter to close...\"; read'" &
+            ;;
+        "xterm")
+            xterm -title "$title" -e bash -c "$cmd; echo 'Process finished. Press Enter to close...'; read" &
+            ;;
+        *)
+            # Fallback to xterm if detected terminal is not in our case statement
+            xterm -title "$title" -e bash -c "$cmd; echo 'Process finished. Press Enter to close...'; read" &
+            ;;
+    esac
+    
+    return 0
 }
 
 # Update system packages
@@ -704,6 +770,7 @@ cmd_mine() {
     local wallet_addr="$DEFAULT_WALLET"
     local data_dir="$DEFAULT_DATA_DIR"
     local use_config=false
+    local separate_terminals=true
     
     # Parse options
     while [[ $# -gt 0 ]]; do
@@ -718,6 +785,14 @@ cmd_mine() {
                 ;;
             --config)
                 use_config=true
+                shift
+                ;;
+            --integrated)
+                separate_terminals=false
+                shift
+                ;;
+            --separate-terminals)
+                separate_terminals=true
                 shift
                 ;;
             *)
@@ -735,6 +810,7 @@ cmd_mine() {
     echo "==============================="
     echo "Wallet: $wallet_addr"
     echo "Data directory: $data_dir"
+    echo "Mode: $(if [[ "$separate_terminals" == "true" ]]; then echo "Separate terminals"; else echo "Integrated"; fi)"
     echo ""
     
     # Check if tools are installed
@@ -745,59 +821,125 @@ cmd_mine() {
         fi
     done
     
-    # Start monerod
-    echo "Starting monerod..."
-    if [[ "$use_config" == "true" && -f "$HOME/.monero/monerod.conf" ]]; then
-        monerod --config-file="$HOME/.monero/monerod.conf" &
-    else
-        monerod --zmq-pub tcp://127.0.0.1:18083 \
-          --out-peers 32 --in-peers 64 \
-          --add-priority-node=p2pmd.xmrvsbeast.com:18080 \
-          --add-priority-node=nodes.hashvault.pro:18080 \
-          --disable-dns-checkpoints --enable-dns-blocklist \
-          --prune-blockchain --data-dir="$data_dir" &
+    if [[ "$separate_terminals" == "true" ]]; then
+        # Check if we can launch separate terminals
+        if ! detect_terminal >/dev/null; then
+            log_warning "No suitable terminal emulator found. Falling back to integrated mode."
+            separate_terminals=false
+        fi
     fi
-    MONEROD_PID=$!
-    log_success "Started monerod (PID: $MONEROD_PID)"
     
-    # Wait a moment for monerod to start
-    sleep 5
-    
-    # Start p2pool
-    echo "Starting p2pool..."
-    if [[ "$use_config" == "true" && -f "$HOME/.p2pool/p2pool.conf" ]]; then
-        p2pool --config-file="$HOME/.p2pool/p2pool.conf" &
+    if [[ "$separate_terminals" == "true" ]]; then
+        # Launch processes in separate terminals
+        echo "Launching processes in separate terminals..."
+        
+        # Start monerod
+        echo "Starting monerod in separate terminal..."
+        if [[ "$use_config" == "true" && -f "$HOME/.monero/monerod.conf" ]]; then
+            launch_in_terminal "monerod --config-file=\"$HOME/.monero/monerod.conf\"" "Monero Daemon (monerod)"
+        else
+            launch_in_terminal "monerod --zmq-pub tcp://127.0.0.1:18083 --out-peers 32 --in-peers 64 --add-priority-node=p2pmd.xmrvsbeast.com:18080 --add-priority-node=nodes.hashvault.pro:18080 --disable-dns-checkpoints --enable-dns-blocklist --prune-blockchain --data-dir=\"$data_dir\"" "Monero Daemon (monerod)"
+        fi
+        log_success "Started monerod in separate terminal"
+        
+        # Wait a moment for monerod to start
+        sleep 8
+        
+        # Start p2pool
+        echo "Starting p2pool in separate terminal..."
+        if [[ "$use_config" == "true" && -f "$HOME/.p2pool/p2pool.conf" ]]; then
+            launch_in_terminal "p2pool --config-file=\"$HOME/.p2pool/p2pool.conf\"" "P2Pool Mining Pool"
+        else
+            launch_in_terminal "p2pool --host 127.0.0.1 --wallet \"$wallet_addr\"" "P2Pool Mining Pool"
+        fi
+        log_success "Started p2pool in separate terminal"
+        
+        # Wait a moment for p2pool to start
+        sleep 8
+        
+        # Start xmrig
+        echo "Starting xmrig in separate terminal..."
+        if [[ "$use_config" == "true" && -f "$HOME/.xmrig/config.json" ]]; then
+            launch_in_terminal "xmrig --config=\"$HOME/.xmrig/config.json\"" "XMRig CPU Miner"
+        else
+            launch_in_terminal "xmrig -o 127.0.0.1:3333 -u \"$wallet_addr\"" "XMRig CPU Miner"
+        fi
+        log_success "Started xmrig in separate terminal"
+        
+        echo ""
+        echo "Mining processes started successfully in separate terminals!"
+        echo "========================================================="
+        echo "- monerod: Running in separate terminal window"
+        echo "- p2pool:  Running in separate terminal window"
+        echo "- xmrig:   Running in separate terminal window"
+        echo ""
+        echo "To stop mining:"
+        echo "1. Close the terminal windows manually, or"
+        echo "2. Use 'pkill monerod && pkill p2pool && pkill xmrig'"
+        echo ""
+        echo "Press [CTRL+C] or close this terminal to exit the launcher."
+        
+        # Keep this script running so user can stop it with Ctrl+C
+        while true; do
+            sleep 1
+        done
+        
     else
-        p2pool --host 127.0.0.1 --wallet "$wallet_addr" &
+        # Original integrated mode
+        # Start monerod
+        echo "Starting monerod..."
+        if [[ "$use_config" == "true" && -f "$HOME/.monero/monerod.conf" ]]; then
+            monerod --config-file="$HOME/.monero/monerod.conf" &
+        else
+            monerod --zmq-pub tcp://127.0.0.1:18083 \
+              --out-peers 32 --in-peers 64 \
+              --add-priority-node=p2pmd.xmrvsbeast.com:18080 \
+              --add-priority-node=nodes.hashvault.pro:18080 \
+              --disable-dns-checkpoints --enable-dns-blocklist \
+              --prune-blockchain --data-dir="$data_dir" &
+        fi
+        MONEROD_PID=$!
+        log_success "Started monerod (PID: $MONEROD_PID)"
+        
+        # Wait a moment for monerod to start
+        sleep 5
+        
+        # Start p2pool
+        echo "Starting p2pool..."
+        if [[ "$use_config" == "true" && -f "$HOME/.p2pool/p2pool.conf" ]]; then
+            p2pool --config-file="$HOME/.p2pool/p2pool.conf" &
+        else
+            p2pool --host 127.0.0.1 --wallet "$wallet_addr" &
+        fi
+        P2POOL_PID=$!
+        log_success "Started p2pool (PID: $P2POOL_PID)"
+        
+        # Wait a moment for p2pool to start
+        sleep 5
+        
+        # Start xmrig
+        echo "Starting xmrig..."
+        if [[ "$use_config" == "true" && -f "$HOME/.xmrig/config.json" ]]; then
+            xmrig --config="$HOME/.xmrig/config.json" &
+        else
+            xmrig -o 127.0.0.1:3333 -u "$wallet_addr" &
+        fi
+        XMRIG_PID=$!
+        log_success "Started xmrig (PID: $XMRIG_PID)"
+        
+        echo ""
+        echo "Mining processes started successfully!"
+        echo "====================================="
+        echo "monerod PID: $MONEROD_PID"
+        echo "p2pool PID: $P2POOL_PID"
+        echo "xmrig PID: $XMRIG_PID"
+        echo ""
+        echo "Press [CTRL+C] to stop all mining processes."
+        echo "Waiting for processes to complete..."
+        
+        # Wait for all processes
+        wait
     fi
-    P2POOL_PID=$!
-    log_success "Started p2pool (PID: $P2POOL_PID)"
-    
-    # Wait a moment for p2pool to start
-    sleep 5
-    
-    # Start xmrig
-    echo "Starting xmrig..."
-    if [[ "$use_config" == "true" && -f "$HOME/.xmrig/config.json" ]]; then
-        xmrig --config="$HOME/.xmrig/config.json" &
-    else
-        xmrig -o 127.0.0.1:3333 -u "$wallet_addr" &
-    fi
-    XMRIG_PID=$!
-    log_success "Started xmrig (PID: $XMRIG_PID)"
-    
-    echo ""
-    echo "Mining processes started successfully!"
-    echo "====================================="
-    echo "monerod PID: $MONEROD_PID"
-    echo "p2pool PID: $P2POOL_PID"
-    echo "xmrig PID: $XMRIG_PID"
-    echo ""
-    echo "Press [CTRL+C] to stop all mining processes."
-    echo "Waiting for processes to complete..."
-    
-    # Wait for all processes
-    wait
 }
 
 # Config command

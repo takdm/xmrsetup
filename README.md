@@ -13,6 +13,7 @@ This script automatically installs and configures:
 ## Features
 
 - ✅ **Unified interface** - One script for installation, configuration, and mining
+- ✅ **Separate terminal mode** - Each process runs in its own terminal window for better monitoring
 - ✅ **Auto-configure mode** - No prompts needed for automated setups
 - ✅ **Configuration generation** - Creates optimal config files automatically  
 - ✅ Arch Linux compatibility check
@@ -27,8 +28,9 @@ This script automatically installs and configures:
 ## Requirements
 
 - Arch Linux (or Arch-based distribution)
-- Internet connection
+- Internet connection  
 - sudo privileges
+- For separate terminal mode: A supported terminal emulator (gnome-terminal, konsole, xfce4-terminal, xterm, etc.)
 
 ## Quick Install
 
@@ -119,10 +121,13 @@ The script will automatically:
 # Generate configuration files
 ./xmr.sh config --wallet YOUR_WALLET_ADDRESS
 
-# Start mining (uses your wallet or config files)
+# Start mining in separate terminals (default - easier to monitor)
 ./xmr.sh mine --wallet YOUR_WALLET_ADDRESS
 # OR use existing config files:
 ./xmr.sh mine --config
+
+# Start mining in integrated mode (legacy behavior)
+./xmr.sh mine --wallet YOUR_WALLET_ADDRESS --integrated
 
 # Check what's installed
 ./xmr.sh status
@@ -130,6 +135,43 @@ The script will automatically:
 # Get help
 ./xmr.sh help
 ```
+
+#### Separate Terminal Mode (Default)
+
+By default, the mining command now launches each process (monerod, p2pool, xmrig) in its own separate terminal window. This provides several benefits:
+
+- **Better monitoring**: Each process has its own window with a clear title
+- **Independent control**: You can close individual processes without affecting others
+- **Cleaner output**: No mixed output from different processes
+- **Easier debugging**: Issues with specific processes are easier to identify
+
+**Supported terminal emulators**: gnome-terminal, konsole, xfce4-terminal, mate-terminal, xterm, alacritty, kitty, terminator, tilix
+
+```bash
+# Start mining with separate terminals (default)
+./xmr.sh mine --wallet YOUR_WALLET_ADDRESS
+
+# Explicitly request separate terminals
+./xmr.sh mine --wallet YOUR_WALLET_ADDRESS --separate-terminals
+```
+
+#### Integrated Mode (Legacy)
+
+If you prefer the old behavior where all processes run in the same terminal, use the `--integrated` option:
+
+```bash
+# Start mining in same terminal (old style)
+./xmr.sh mine --wallet YOUR_WALLET_ADDRESS --integrated
+```
+
+#### Stopping Mining Processes
+
+**In separate terminal mode:**
+- Simply close the individual terminal windows, or
+- Use the command: `pkill monerod && pkill p2pool && pkill xmrig`
+
+**In integrated mode:**
+- Press `Ctrl+C` in the terminal running the mining script
 
 ### Legacy Individual Commands (Still Supported)
 
@@ -189,6 +231,28 @@ The tools are installed to `/usr/local/bin/`. Make sure this directory is in you
 ```bash
 echo $PATH | grep -q "/usr/local/bin" || echo 'export PATH="/usr/local/bin:$PATH"' >> ~/.bashrc
 ```
+
+### Separate terminals not working
+If the separate terminal mode doesn't work:
+1. **Install a supported terminal emulator**:
+   ```bash
+   # For GNOME desktop
+   sudo pacman -S gnome-terminal
+   
+   # For KDE desktop  
+   sudo pacman -S konsole
+   
+   # For XFCE desktop
+   sudo pacman -S xfce4-terminal
+   
+   # Lightweight option
+   sudo pacman -S xterm
+   ```
+2. **Use integrated mode as fallback**:
+   ```bash
+   ./xmr.sh mine --integrated --wallet YOUR_WALLET_ADDRESS
+   ```
+3. **Check if running in a desktop environment** - Separate terminals require a graphical environment
 
 ## Security Notes
 
