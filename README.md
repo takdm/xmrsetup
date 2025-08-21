@@ -113,6 +113,56 @@ echo $PATH | grep -q "/usr/local/bin" || echo 'export PATH="/usr/local/bin:$PATH
 
 Feel free to open issues or submit pull requests to improve this script.
 
+## Testing
+
+This repository includes a comprehensive test suite to ensure code quality and functionality:
+
+### Running Tests
+
+To run all tests:
+```bash
+./run_all_tests.sh
+```
+
+### Individual Test Suites
+
+1. **Basic functionality tests**:
+   ```bash
+   ./test_xmrsetup.sh
+   ```
+
+2. **Comprehensive function tests**:
+   ```bash
+   ./test_comprehensive.sh
+   ```
+
+3. **Start mining script tests**:
+   ```bash
+   ./test_startmining.sh
+   ```
+
+### Test Coverage
+
+The test suite covers:
+- ✅ Function existence and basic functionality
+- ✅ Logging system correctness
+- ✅ Configuration directory creation
+- ✅ Error handling and edge cases
+- ✅ Script syntax validation
+- ✅ Process management in mining script
+- ✅ Signal handling and cleanup
+- ✅ Input validation
+- ✅ Code quality checks (shellcheck integration)
+
+### Development Guidelines
+
+- All scripts must pass syntax validation (`bash -n`)
+- New functions should include corresponding tests
+- Error handling should be comprehensive with proper cleanup
+- Use `set -e` for fail-fast behavior
+- Quote variables to prevent word splitting
+- Include signal handlers for long-running processes
+
 ## License
 
 This project is provided as-is for educational and personal use.
