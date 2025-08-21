@@ -32,7 +32,7 @@ log_error() {
 # Check if running on Arch Linux
 check_arch_linux() {
     log_info "Checking if running on Arch Linux..."
-    if [[ -f /etc/arch-release ]] || [[ -f /etc/os-release && $(grep -i "arch" /etc/os-release) ]]; then
+    if [[ -f /etc/arch-release ]] || [[ -f /etc/os-release && $(grep -qi "arch" /etc/os-release) ]]; then
         log_success "Arch Linux detected"
         return 0
     else
@@ -44,6 +44,18 @@ check_arch_linux() {
 # Check if a command exists
 command_exists() {
     command -v "$1" >/dev/null 2>&1
+}
+
+# Validate network connectivity
+check_network() {
+    log_info "Checking network connectivity..."
+    if curl -s --connect-timeout 10 https://api.github.com >/dev/null; then
+        log_success "Network connectivity confirmed"
+        return 0
+    else
+        log_warning "Network connectivity issue detected"
+        return 1
+    fi
 }
 
 # Update system packages
@@ -270,6 +282,8 @@ install_xmrig() {
     
     if [[ -z "$download_url" ]]; then
         log_error "Failed to get xmrig download URL"
+        cd /
+        rm -rf "$temp_dir"
         return 1
     fi
     
@@ -278,111 +292,74 @@ install_xmrig() {
         log_success "Downloaded xmrig"
     else
         log_error "Failed to download xmrig"
+        cd /
+        rm -rf "$temp_dir"
         return 1
     fi
     
     # Extract and install
-    log_info "Checking for p2pool..."
-
-    if command_exists p2pool; then
-        local version=$(p2pool --version 2>/dev/null || echo "unknown")
-        log_success "p2pool is already installed: $version"
-        return 0
-    fi
-
-    log_info "p2pool not found. Installing from official releases..."
-
-    # Create temporary directory
-    local temp_dir=$(mktemp -d)
-    cd "$temp_dir"
-
-    # Get the latest release info from GitHub API
-    local latest_url="https://api.github.com/repos/SChernykh/p2pool/releases/latest"
-    local download_url=$(curl -s "$latest_url" | grep "browser_download_url.*linux-x64" | cut -d '"' -f 4)
-
-    if [[ -z "$download_url" ]]; then
-        log_warning "Failed to get p2pool download URL. Trying yay as a backup..."
-        if command_exists yay; then
-            log_info "Installing p2pool from AUR using yay..."
-            if yay -S --noconfirm p2pool; then
-                log_success "p2pool installed from AUR"
-                cd /
-                rm -rf "$temp_dir"
-                return 0
-            else
-                log_error "Failed to install p2pool from AUR. Aborting."
-                cd /
-                rm -rf "$temp_dir"
-                return 1
-            fi
-        else
-            log_error "Neither direct download nor yay available for p2pool. Aborting."
-            cd /
-            rm -rf "$temp_dir"
-            return 1
-        fi
-    fi
-
-    log_info "Downloading p2pool from: $download_url"
-    if wget -O p2pool.tar.gz "$download_url"; then
-        log_success "Downloaded p2pool"
+    log_info "Extracting xmrig..."
+    tar -xzf xmrig.tar.gz
+    
+    local xmrig_dir=$(ls -d xmrig-* | head -n1)
+    if [[ -d "$xmrig_dir" && -f "$xmrig_dir/xmrig" ]]; then
+        sudo cp "$xmrig_dir/xmrig" /usr/local/bin/
+        sudo chmod +x /usr/local/bin/xmrig
+        log_success "xmrig installed successfully"
+    elif [[ -f xmrig ]]; then
+        sudo cp xmrig /usr/local/bin/
+        sudo chmod +x /usr/local/bin/xmrig
+        log_success "xmrig installed successfully"
     else
-        log_warning "Failed to download p2pool. Trying yay as a backup..."
-        if command_exists yay; then
-            log_info "Installing p2pool from AUR using yay..."
-            if yay -S --noconfirm p2pool; then
-                log_success "p2pool installed from AUR"
-                cd /
-                rm -rf "$temp_dir"
-                return 0
-            else
-                log_error "Failed to install p2pool from AUR. Aborting."
-                cd /
-                rm -rf "$temp_dir"
-                return 1
-            fi
-        else
-            log_error "Neither direct download nor yay available for p2pool. Aborting."
-            cd /
-            rm -rf "$temp_dir"
-            return 1
-        fi
+        log_error "Failed to extract xmrig"
+        cd /
+        rm -rf "$temp_dir"
+        return 1
     fi
-
-    # Extract and install
-    log_info "Extracting p2pool..."
-    tar -xzf p2pool.tar.gz
-
-    if [[ -f p2pool ]]; then
-        sudo cp p2pool /usr/local/bin/
-        sudo chmod +x /usr/local/bin/p2pool
-        log_success "p2pool installed successfully"
-    else
-        log_warning "Failed to extract p2pool. Trying yay as a backup..."
-        if command_exists yay; then
-            log_info "Installing p2pool from AUR using yay..."
-            if yay -S --noconfirm p2pool; then
-                log_success "p2pool installed from AUR"
-                cd /
-                rm -rf "$temp_dir"
-                return 0
-            else
-                log_error "Failed to install p2pool from AUR. Aborting."
-                cd /
-                rm -rf "$temp_dir"
-                return 1
-            fi
-        else
-            log_error "Neither direct download nor yay available for p2pool. Aborting."
-            cd /
-            rm -rf "$temp_dir"
-            return 1
-        fi
-    fi
-
+    
     # Cleanup
     cd /
     rm -rf "$temp_dir"
+}
+
+# Create configuration directories
+create_config_dirs() {
+    log_info "Creating configuration directories..."
+    
+    local config_dirs=("$HOME/.monero" "$HOME/.p2pool" "$HOME/.xmrig")
+    
+    for dir in "${config_dirs[@]}"; do
+        if [[ ! -d "$dir" ]]; then
+            mkdir -p "$dir"
+            log_info "Created directory: $dir"
+        else
+            log_info "Directory already exists: $dir"
+        fi
+    done
+    
+    log_success "Configuration directories ready"
+}
+
+# Display installed versions
+display_versions() {
+    log_info "Checking installed versions..."
+    echo ""
+    echo "===================="
+    echo "   Installed Tools"
+    echo "===================="
+    
+    if command_exists monerod; then
+        local monerod_version=$(monerod --version 2>/dev/null | head -n1 || echo "installed")
+        echo -e "monerod: ${GREEN}$monerod_version${NC}"
+    else
+        echo -e "monerod: ${RED}Not installed${NC}"
+    fi
+    
+    if command_exists p2pool; then
+        local p2pool_version=$(p2pool --version 2>/dev/null || echo "installed")
+        echo -e "p2pool: ${GREEN}$p2pool_version${NC}"
+    else
+        echo -e "p2pool: ${RED}Not installed${NC}"
     fi
     
     if command_exists xmrig; then
@@ -411,6 +388,17 @@ main() {
     
     # Check Arch Linux
     check_arch_linux
+    
+    # Check network connectivity before proceeding
+    if ! check_network; then
+        log_warning "Proceeding without network verification - some downloads may fail"
+        read -p "Continue anyway? (y/n): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            log_info "Aborted by user"
+            exit 0
+        fi
+    fi
     
     # Update system
     read -p "Update system packages? (y/n): " -n 1 -r
