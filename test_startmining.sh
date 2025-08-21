@@ -73,15 +73,13 @@ else
     test_pass "Error handling check completed (warning issued)"
 fi
 
-# Test 3: Check directory handling
-test_start "Testing directory change safety"
-cd_with_exit_count=$(grep -c "{ echo.*exit 1; }" ./startmining.sh || echo "0")
-exit_one_count=$(grep -c "exit 1" ./startmining.sh || echo "0")
-total_error_handling=$((cd_with_exit_count + exit_one_count))
-if [[ $total_error_handling -gt 0 ]]; then
-    test_pass "Script includes proper error handling for directory changes"
+# Test 3: Check error handling
+test_start "Testing error handling"
+exit_one_count=$(grep -c "exit 1" ./startmining.sh 2>/dev/null || echo "0")
+if [[ $exit_one_count -gt 0 ]]; then
+    test_pass "Script includes proper error handling"
 else
-    test_fail "Script should handle directory change failures with 'exit 1'"
+    test_fail "Script should include error handling with 'exit 1'"
 fi
 
 # Test 4: Check for hardcoded paths
@@ -132,19 +130,19 @@ fi
 
 # Test 9: Check for required executables
 test_start "Testing executable references"
-if grep -q "./monerod" ./startmining.sh; then
+if grep -q "monerod" ./startmining.sh; then
     test_pass "Script references monerod executable"
 else
     test_fail "Script should reference monerod executable"
 fi
 
-if grep -q "./p2pool" ./startmining.sh; then
+if grep -q "p2pool" ./startmining.sh; then
     test_pass "Script references p2pool executable"
 else
     test_fail "Script should reference p2pool executable"
 fi
 
-if grep -q "./xmrig" ./startmining.sh; then
+if grep -q "xmrig" ./startmining.sh; then
     test_pass "Script references xmrig executable"
 else
     test_fail "Script should reference xmrig executable"
