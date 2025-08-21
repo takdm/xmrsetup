@@ -26,25 +26,57 @@ This script automatically installs and configures:
 - Internet connection
 - sudo privileges
 
-## Installation
+## Quick Install
 
-1. Clone this repository:
-   ```bash
-   git clone https://github.com/takdm/xmrsetup.git
-   cd xmrsetup
-   ```
+Run this single command to install everything:
 
-2. Run the setup script:
-   ```bash
-   ./xmrsetup.sh
-   ```
+```bash
+curl -fsSL https://raw.githubusercontent.com/takdm/xmrsetup/main/xmrsetup.sh | bash
+```
 
-The script will:
-- Verify you're running Arch Linux
-- Ask if you want to update system packages
-- Install necessary dependencies
-- Download and install each tool from official sources
-- Create configuration directories in your home folder
+Or if you prefer wget:
+
+```bash
+wget -qO- https://raw.githubusercontent.com/takdm/xmrsetup/main/xmrsetup.sh | bash
+```
+
+That's it! The script will automatically install monerod, p2pool, and xmrig for you.
+
+## Update
+
+To update your existing installation:
+
+```bash
+# Re-run the install script - it will detect existing tools and update them
+curl -fsSL https://raw.githubusercontent.com/takdm/xmrsetup/main/xmrsetup.sh | bash
+```
+
+Or manually update each tool:
+
+```bash
+# Update system packages first
+sudo pacman -Syu
+
+# Then re-run the setup script to get the latest versions
+./xmrsetup.sh
+```
+
+## Detailed Installation
+
+If you prefer to clone the repository first:
+
+```bash
+git clone https://github.com/takdm/xmrsetup.git
+cd xmrsetup
+./xmrsetup.sh
+```
+
+The script will automatically:
+- ✅ Verify you're running Arch Linux
+- ✅ Install system dependencies  
+- ✅ Download latest versions from official sources
+- ✅ Create configuration directories
+- ✅ Show installation summary
 
 ## Usage After Installation
 
@@ -85,13 +117,10 @@ The script creates configuration directories in your home folder:
 ## Troubleshooting
 
 ### Script fails with permission errors
-Make sure you have sudo privileges and the script is executable:
-```bash
-chmod +x xmrsetup.sh
-```
+If you get permission errors with the quick install, try the detailed installation method instead.
 
 ### Download failures
-Check your internet connection and try running the script again. The script downloads from:
+Check your internet connection and try again. If the quick install fails, you can use the detailed installation method. The script downloads from:
 - Monero: GitHub releases (monero-project/monero)
 - P2Pool: GitHub releases (SChernykh/p2pool)  
 - XMRig: GitHub releases (xmrig/xmrig) or AUR
