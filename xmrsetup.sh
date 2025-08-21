@@ -79,40 +79,76 @@ install_dependencies() {
 # Check and install monerod
 install_monerod() {
     log_info "Checking for monerod (Monero daemon)..."
-    
+
     if command_exists monerod; then
         local version=$(monerod --version 2>/dev/null | head -n1 || echo "unknown")
         log_success "monerod is already installed: $version"
         return 0
     fi
-    
+
     log_info "monerod not found. Installing from official Monero releases..."
-    
+
     # Create temporary directory
     local temp_dir=$(mktemp -d)
     cd "$temp_dir"
-    
+
     # Get the latest release info from GitHub API
     local latest_url="https://api.github.com/repos/monero-project/monero/releases/latest"
     local download_url=$(curl -s "$latest_url" | grep "browser_download_url.*linux-x64" | cut -d '"' -f 4)
-    
+
     if [[ -z "$download_url" ]]; then
-        log_error "Failed to get Monero download URL"
-        return 1
+        log_warning "Failed to get Monero download URL. Trying yay as a backup..."
+        if command_exists yay; then
+            log_info "Installing monero from AUR using yay..."
+            if yay -S --noconfirm monero; then
+                log_success "monero installed from AUR"
+                cd /
+                rm -rf "$temp_dir"
+                return 0
+            else
+                log_error "Failed to install monero from AUR. Aborting."
+                cd /
+                rm -rf "$temp_dir"
+                return 1
+            fi
+        else
+            log_error "Neither direct download nor yay available for monero. Aborting."
+            cd /
+            rm -rf "$temp_dir"
+            return 1
+        fi
     fi
-    
+
     log_info "Downloading Monero from: $download_url"
     if wget -O monero.tar.bz2 "$download_url"; then
         log_success "Downloaded Monero"
     else
-        log_error "Failed to download Monero"
-        return 1
+        log_warning "Failed to download Monero. Trying yay as a backup..."
+        if command_exists yay; then
+            log_info "Installing monero from AUR using yay..."
+            if yay -S --noconfirm monero; then
+                log_success "monero installed from AUR"
+                cd /
+                rm -rf "$temp_dir"
+                return 0
+            else
+                log_error "Failed to install monero from AUR. Aborting."
+                cd /
+                rm -rf "$temp_dir"
+                return 1
+            fi
+        else
+            log_error "Neither direct download nor yay available for monero. Aborting."
+            cd /
+            rm -rf "$temp_dir"
+            return 1
+        fi
     fi
-    
+
     # Extract and install
     log_info "Extracting Monero..."
     tar -xjf monero.tar.bz2
-    
+
     local monero_dir=$(ls -d monero-*-linux-x64 | head -n1)
     if [[ -d "$monero_dir" ]]; then
         sudo cp "$monero_dir/monerod" /usr/local/bin/
@@ -123,10 +159,28 @@ install_monerod() {
         sudo chmod +x /usr/local/bin/monero-wallet-rpc
         log_success "monerod installed successfully"
     else
-        log_error "Failed to extract Monero"
-        return 1
+        log_warning "Failed to extract Monero. Trying yay as a backup..."
+        if command_exists yay; then
+            log_info "Installing monero from AUR using yay..."
+            if yay -S --noconfirm monero; then
+                log_success "monero installed from AUR"
+                cd /
+                rm -rf "$temp_dir"
+                return 0
+            else
+                log_error "Failed to install monero from AUR. Aborting."
+                cd /
+                rm -rf "$temp_dir"
+                return 1
+            fi
+        else
+            log_error "Neither direct download nor yay available for monero. Aborting."
+            cd /
+            rm -rf "$temp_dir"
+            return 1
+        fi
     fi
-    
+
     # Cleanup
     cd /
     rm -rf "$temp_dir"
@@ -228,52 +282,107 @@ install_xmrig() {
     fi
     
     # Extract and install
-    log_info "Extracting xmrig..."
-    tar -xzf xmrig.tar.gz
-    
-    local xmrig_dir=$(ls -d xmrig-* | head -n1)
-    if [[ -d "$xmrig_dir" && -f "$xmrig_dir/xmrig" ]]; then
-        sudo cp "$xmrig_dir/xmrig" /usr/local/bin/
-        sudo chmod +x /usr/local/bin/xmrig
-        log_success "xmrig installed successfully"
-    else
-        log_error "Failed to extract xmrig"
-        return 1
+    log_info "Checking for p2pool..."
+
+    if command_exists p2pool; then
+        local version=$(p2pool --version 2>/dev/null || echo "unknown")
+        log_success "p2pool is already installed: $version"
+        return 0
     fi
-    
+
+    log_info "p2pool not found. Installing from official releases..."
+
+    # Create temporary directory
+    local temp_dir=$(mktemp -d)
+    cd "$temp_dir"
+
+    # Get the latest release info from GitHub API
+    local latest_url="https://api.github.com/repos/SChernykh/p2pool/releases/latest"
+    local download_url=$(curl -s "$latest_url" | grep "browser_download_url.*linux-x64" | cut -d '"' -f 4)
+
+    if [[ -z "$download_url" ]]; then
+        log_warning "Failed to get p2pool download URL. Trying yay as a backup..."
+        if command_exists yay; then
+            log_info "Installing p2pool from AUR using yay..."
+            if yay -S --noconfirm p2pool; then
+                log_success "p2pool installed from AUR"
+                cd /
+                rm -rf "$temp_dir"
+                return 0
+            else
+                log_error "Failed to install p2pool from AUR. Aborting."
+                cd /
+                rm -rf "$temp_dir"
+                return 1
+            fi
+        else
+            log_error "Neither direct download nor yay available for p2pool. Aborting."
+            cd /
+            rm -rf "$temp_dir"
+            return 1
+        fi
+    fi
+
+    log_info "Downloading p2pool from: $download_url"
+    if wget -O p2pool.tar.gz "$download_url"; then
+        log_success "Downloaded p2pool"
+    else
+        log_warning "Failed to download p2pool. Trying yay as a backup..."
+        if command_exists yay; then
+            log_info "Installing p2pool from AUR using yay..."
+            if yay -S --noconfirm p2pool; then
+                log_success "p2pool installed from AUR"
+                cd /
+                rm -rf "$temp_dir"
+                return 0
+            else
+                log_error "Failed to install p2pool from AUR. Aborting."
+                cd /
+                rm -rf "$temp_dir"
+                return 1
+            fi
+        else
+            log_error "Neither direct download nor yay available for p2pool. Aborting."
+            cd /
+            rm -rf "$temp_dir"
+            return 1
+        fi
+    fi
+
+    # Extract and install
+    log_info "Extracting p2pool..."
+    tar -xzf p2pool.tar.gz
+
+    if [[ -f p2pool ]]; then
+        sudo cp p2pool /usr/local/bin/
+        sudo chmod +x /usr/local/bin/p2pool
+        log_success "p2pool installed successfully"
+    else
+        log_warning "Failed to extract p2pool. Trying yay as a backup..."
+        if command_exists yay; then
+            log_info "Installing p2pool from AUR using yay..."
+            if yay -S --noconfirm p2pool; then
+                log_success "p2pool installed from AUR"
+                cd /
+                rm -rf "$temp_dir"
+                return 0
+            else
+                log_error "Failed to install p2pool from AUR. Aborting."
+                cd /
+                rm -rf "$temp_dir"
+                return 1
+            fi
+        else
+            log_error "Neither direct download nor yay available for p2pool. Aborting."
+            cd /
+            rm -rf "$temp_dir"
+            return 1
+        fi
+    fi
+
     # Cleanup
     cd /
     rm -rf "$temp_dir"
-}
-
-# Create configuration directories
-create_config_dirs() {
-    log_info "Creating configuration directories..."
-    
-    mkdir -p ~/.monero
-    mkdir -p ~/.p2pool
-    mkdir -p ~/.xmrig
-    
-    log_success "Configuration directories created"
-}
-
-# Display installed versions
-display_versions() {
-    echo ""
-    log_info "Installation Summary:"
-    echo "===================="
-    
-    if command_exists monerod; then
-        local monerod_version=$(monerod --version 2>/dev/null | head -n1 || echo "unknown")
-        echo -e "monerod: ${GREEN}$monerod_version${NC}"
-    else
-        echo -e "monerod: ${RED}Not installed${NC}"
-    fi
-    
-    if command_exists p2pool; then
-        local p2pool_version=$(p2pool --version 2>/dev/null || echo "installed")
-        echo -e "p2pool: ${GREEN}$p2pool_version${NC}"
-    else
         echo -e "p2pool: ${RED}Not installed${NC}"
     fi
     
