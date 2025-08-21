@@ -383,7 +383,6 @@ install_xmrig() {
     # Cleanup
     cd /
     rm -rf "$temp_dir"
-        echo -e "p2pool: ${RED}Not installed${NC}"
     fi
     
     if command_exists xmrig; then
