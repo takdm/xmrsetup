@@ -18,7 +18,12 @@ TESTS_PASSED=0
 TESTS_FAILED=0
 
 # Source the main script to test functions
-source ./xmrsetup.sh
+# First try the unified script, then fall back to the wrapper
+if [[ -f ./xmr.sh ]]; then
+    source ./xmr.sh
+else
+    source ./xmrsetup.sh
+fi
 
 # Test helper functions
 test_start() {
@@ -205,14 +210,20 @@ done
 test_start "Testing script structure and syntax"
 
 # Check if script sources properly
-if source ./xmrsetup.sh >/dev/null 2>&1; then
+if [[ -f ./xmr.sh ]]; then
+    SCRIPT_TO_TEST="./xmr.sh"
+else
+    SCRIPT_TO_TEST="./xmrsetup.sh"
+fi
+
+if source "$SCRIPT_TO_TEST" >/dev/null 2>&1; then
     test_pass "Script sources without errors"
 else
     test_fail "Script has sourcing errors"
 fi
 
 # Check for common bash issues
-if bash -n ./xmrsetup.sh; then
+if bash -n "$SCRIPT_TO_TEST"; then
     test_pass "Script has valid bash syntax"
 else
     test_fail "Script has bash syntax errors"
@@ -222,21 +233,21 @@ fi
 test_start "Testing for potential code issues"
 
 # Check for unquoted variables (basic check)
-if ! grep -n '\$[A-Za-z_][A-Za-z0-9_]*[^"]' ./xmrsetup.sh | grep -v '${' | grep -v '\$(' >/dev/null; then
+if ! grep -n '\$[A-Za-z_][A-Za-z0-9_]*[^"]' "$SCRIPT_TO_TEST" | grep -v '${' | grep -v '\$(' >/dev/null; then
     test_pass "No obvious unquoted variable issues found"
 else
     test_pass "Checked for unquoted variables (manual review recommended)"
 fi
 
 # Check for proper error handling patterns
-if grep -q "set -e" ./xmrsetup.sh; then
+if grep -q "set -e" "$SCRIPT_TO_TEST"; then
     test_pass "Script uses 'set -e' for error handling"
 else
     test_fail "Script should use 'set -e' for better error handling"
 fi
 
 # Check for temporary directory cleanup
-temp_cleanup_count=$(grep -c "rm -rf.*temp_dir" ./xmrsetup.sh || echo "0")
+temp_cleanup_count=$(grep -c "rm -rf.*temp_dir" "$SCRIPT_TO_TEST" || echo "0")
 if [[ $temp_cleanup_count -gt 0 ]]; then
     test_pass "Script includes temporary directory cleanup"
 else
