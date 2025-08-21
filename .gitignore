@@ -36,3 +36,4 @@ Thumbs.db
 # Build artifacts
 build/
 dist/
+start.bat
