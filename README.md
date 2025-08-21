@@ -12,6 +12,9 @@ This script automatically installs and configures:
 
 ## Features
 
+- ✅ **Unified interface** - One script for installation, configuration, and mining
+- ✅ **Auto-configure mode** - No prompts needed for automated setups
+- ✅ **Configuration generation** - Creates optimal config files automatically  
 - ✅ Arch Linux compatibility check
 - ✅ Automatic detection of already installed tools
 - ✅ Downloads from official sources and releases
@@ -19,6 +22,7 @@ This script automatically installs and configures:
 - ✅ User-friendly colored output and progress indicators
 - ✅ Creates configuration directories
 - ✅ Installation summary and next steps
+- ✅ **Backward compatibility** - Legacy scripts still work
 
 ## Requirements
 
@@ -28,19 +32,48 @@ This script automatically installs and configures:
 
 ## Quick Install
 
-Run this single command to install everything:
+**New Unified Script (Recommended):**
+
+The new `xmr.sh` script combines installation, configuration, and mining functionality:
+
+```bash
+# Auto-install everything without prompts
+curl -fsSL https://raw.githubusercontent.com/takdm/xmrsetup/main/xmr.sh | bash -s install --auto
+
+# Or download and use locally
+wget https://raw.githubusercontent.com/takdm/xmrsetup/main/xmr.sh
+chmod +x xmr.sh
+./xmr.sh install --auto
+```
+
+**Legacy Method (Still Supported):**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/takdm/xmrsetup/main/xmrsetup.sh | bash
 ```
 
-Or if you prefer wget:
+That's it! The script will automatically install monerod, p2pool, and xmrig for you.
+
+## Auto-Configure Feature
+
+The new unified script includes auto-configuration that eliminates manual prompts:
 
 ```bash
-wget -qO- https://raw.githubusercontent.com/takdm/xmrsetup/main/xmrsetup.sh | bash
-```
+# Install with automatic configuration (no prompts)
+./xmr.sh install --auto
 
-That's it! The script will automatically install monerod, p2pool, and xmrig for you.
+# Generate configuration files with your wallet
+./xmr.sh config --wallet YOUR_WALLET_ADDRESS
+
+# Start mining with your wallet
+./xmr.sh mine --wallet YOUR_WALLET_ADDRESS
+
+# Or use generated config files
+./xmr.sh mine --config
+
+# Check installation status
+./xmr.sh status
+```
 
 ## Update
 
@@ -80,6 +113,26 @@ The script will automatically:
 
 ## Usage After Installation
 
+### New Unified Interface (Recommended)
+
+```bash
+# Generate configuration files
+./xmr.sh config --wallet YOUR_WALLET_ADDRESS
+
+# Start mining (uses your wallet or config files)
+./xmr.sh mine --wallet YOUR_WALLET_ADDRESS
+# OR use existing config files:
+./xmr.sh mine --config
+
+# Check what's installed
+./xmr.sh status
+
+# Get help
+./xmr.sh help
+```
+
+### Legacy Individual Commands (Still Supported)
+
 ### Starting monerod (Monero daemon)
 ```bash
 # Start with default settings
@@ -105,6 +158,12 @@ xmrig -o 127.0.0.1:3333 -u YOUR_WALLET_ADDRESS
 
 # Mine to a regular pool
 xmrig -o pool.example.com:4444 -u YOUR_WALLET_ADDRESS -p x
+```
+
+### Legacy Mining Script
+```bash
+# The old startmining.sh still works (now redirects to xmr.sh mine)
+./startmining.sh
 ```
 
 ## Configuration Files

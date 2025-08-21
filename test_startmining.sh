@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Test script for startmining.sh
-# Tests structure, syntax, and potential issues
+# Updated test script for startmining.sh
+# Tests both the wrapper functionality and the underlying unified script
 
 set -e
 
@@ -56,115 +56,102 @@ test_summary() {
 echo "Testing startmining.sh script..."
 echo "================================"
 
-# Test 1: Basic syntax check
-test_start "Testing script syntax"
-if bash -n ./startmining.sh; then
-    test_pass "Script has valid bash syntax"
+# Determine which script contains the actual mining functionality
+MINING_SCRIPT="./startmining.sh"
+UNIFIED_SCRIPT="./xmr.sh"
+
+# Check if we have the unified script, and if startmining.sh is a wrapper
+if [[ -f "$UNIFIED_SCRIPT" ]] && grep -q "xmr.sh" "$MINING_SCRIPT"; then
+    echo "Note: startmining.sh is now a wrapper for xmr.sh - testing unified functionality"
+    USE_UNIFIED=true
+    MAIN_SCRIPT="$UNIFIED_SCRIPT"
 else
-    test_fail "Script has bash syntax errors"
+    echo "Note: Testing standalone startmining.sh script"
+    USE_UNIFIED=false
+    MAIN_SCRIPT="$MINING_SCRIPT"
 fi
 
-# Test 2: Check for proper error handling
+# Test 1: Basic script syntax
+test_start "Testing script syntax"
+if bash -n "$MINING_SCRIPT"; then
+    test_pass "Wrapper script has valid bash syntax"
+else
+    test_fail "Wrapper script has syntax errors"
+fi
+
+if [[ "$USE_UNIFIED" == "true" ]] && bash -n "$UNIFIED_SCRIPT"; then
+    test_pass "Unified script has valid bash syntax"
+elif [[ "$USE_UNIFIED" == "false" ]]; then
+    # Already tested above for standalone case
+    :
+else
+    test_fail "Unified script has syntax errors"
+fi
+
+# Test 2: Check wrapper functionality
+test_start "Testing wrapper functionality"
+if [[ "$USE_UNIFIED" == "true" ]]; then
+    if grep -q "exec.*xmr.sh.*mine" "$MINING_SCRIPT"; then
+        test_pass "Wrapper correctly calls unified script with mine command"
+    else
+        test_fail "Wrapper should call 'xmr.sh mine'"
+    fi
+else
+    test_pass "Standalone script doesn't need wrapper functionality"
+fi
+
+# Test 3: Check for error handling in main functionality
 test_start "Testing error handling patterns"
-if grep -q "set -e" ./startmining.sh; then
-    test_pass "Script uses 'set -e' for error handling"
+if grep -q "set -e" "$MAIN_SCRIPT"; then
+    test_pass "Main script uses 'set -e' for error handling"
 else
     test_warn "Script should consider using 'set -e' for better error handling"
     test_pass "Error handling check completed (warning issued)"
 fi
 
-# Test 3: Check error handling
-test_start "Testing error handling"
-exit_one_count=$(grep -c "exit 1" ./startmining.sh 2>/dev/null || echo "0")
-if [[ $exit_one_count -gt 0 ]]; then
-    test_pass "Script includes proper error handling"
+# Test 4: Check for mining process management
+test_start "Testing mining process management"
+if grep -q "monerod.*&" "$MAIN_SCRIPT" && 
+   grep -q "p2pool.*&" "$MAIN_SCRIPT" &&
+   grep -q "xmrig.*&" "$MAIN_SCRIPT"; then
+    test_pass "Script properly starts mining processes in background"
 else
-    test_fail "Script should include error handling with 'exit 1'"
+    test_fail "Script should start monerod, p2pool, and xmrig in background"
 fi
 
-# Test 4: Check for hardcoded paths
-test_start "Testing for hardcoded paths and flexibility"
-if grep -q "xmrig-6.24.0" ./startmining.sh; then
-    test_warn "Script contains hardcoded version path 'xmrig-6.24.0' - should be made flexible"
-    test_pass "Hardcoded path check completed (warning issued)"
+# Test 5: Check for process cleanup
+test_start "Testing process cleanup functionality"
+if grep -q "cleanup\|kill.*PID\|trap.*SIGINT\|trap.*SIGTERM" "$MAIN_SCRIPT"; then
+    test_pass "Script includes process cleanup functionality"
 else
-    test_pass "No hardcoded version paths found"
+    test_fail "Script should include cleanup for mining processes"
 fi
 
-# Test 5: Check process management
-test_start "Testing process management"
-if grep -q "MONEROD_PID=\$!" ./startmining.sh && 
-   grep -q "P2POOL_PID=\$!" ./startmining.sh &&
-   grep -q "XMRIG_PID=\$!" ./startmining.sh; then
-    test_pass "Script properly captures process PIDs"
+# Test 6: Check for executable validation
+test_start "Testing executable validation"
+if grep -q "command.*-v.*monerod\|command.*exists.*monerod" "$MAIN_SCRIPT" &&
+   grep -q "command.*-v.*p2pool\|command.*exists.*p2pool" "$MAIN_SCRIPT" &&
+   grep -q "command.*-v.*xmrig\|command.*exists.*xmrig" "$MAIN_SCRIPT"; then
+    test_pass "Script validates required executables exist"
 else
-    test_fail "Script should capture all process PIDs"
+    test_fail "Script should validate that monerod, p2pool, and xmrig are available"
 fi
 
-# Test 6: Check for wait command
-test_start "Testing process waiting"
-if grep -q "wait" ./startmining.sh; then
-    test_pass "Script includes wait command for process management"
+# Test 7: Check for user feedback
+test_start "Testing user feedback"
+if grep -q "Starting\|started\|PID" "$MAIN_SCRIPT"; then
+    test_pass "Script provides user feedback about mining processes"
 else
-    test_fail "Script should use wait command for proper process management"
+    test_fail "Script should provide informative messages to user"
 fi
 
-# Test 7: Check for signal handling
-test_start "Testing signal handling"
-if grep -q "trap" ./startmining.sh; then
-    test_pass "Script includes signal handling"
+# Test 8: Check configuration handling
+test_start "Testing configuration handling"
+if grep -q "wallet\|config" "$MAIN_SCRIPT"; then
+    test_pass "Script handles wallet/configuration parameters"
 else
-    test_warn "Script should consider adding signal handling for clean shutdown"
-    test_pass "Signal handling check completed (warning issued)"
-fi
-
-# Test 8: Check wallet address format
-test_start "Testing wallet address format"
-wallet_line=$(grep -o "49[A-Za-z0-9]*" ./startmining.sh || echo "")
-if [[ ${#wallet_line} -eq 95 ]]; then
-    test_pass "Wallet address appears to be correct length (95 characters)"
-else
-    test_warn "Wallet address format should be verified (expected 95 chars, got ${#wallet_line})"
-    test_pass "Wallet address check completed (warning issued)"
-fi
-
-# Test 9: Check for required executables
-test_start "Testing executable references"
-if grep -q "monerod" ./startmining.sh; then
-    test_pass "Script references monerod executable"
-else
-    test_fail "Script should reference monerod executable"
-fi
-
-if grep -q "p2pool" ./startmining.sh; then
-    test_pass "Script references p2pool executable"
-else
-    test_fail "Script should reference p2pool executable"
-fi
-
-if grep -q "xmrig" ./startmining.sh; then
-    test_pass "Script references xmrig executable"
-else
-    test_fail "Script should reference xmrig executable"
-fi
-
-# Test 10: Check output messages
-test_start "Testing user output messages"
-if grep -q "Starting monerod" ./startmining.sh &&
-   grep -q "Starting p2pool" ./startmining.sh &&
-   grep -q "Starting xmrig" ./startmining.sh; then
-    test_pass "Script includes informative startup messages"
-else
-    test_fail "Script should include startup messages for each process"
-fi
-
-# Test 11: Check for background process execution
-test_start "Testing background process execution"
-ampersand_count=$(grep -c "&$" ./startmining.sh || echo "0")
-if [[ $ampersand_count -ge 3 ]]; then
-    test_pass "Script properly runs processes in background"
-else
-    test_fail "Script should run all mining processes in background (&)"
+    test_warn "Script should consider wallet configuration options"
+    test_pass "Configuration check completed (warning issued)"
 fi
 
 echo ""
